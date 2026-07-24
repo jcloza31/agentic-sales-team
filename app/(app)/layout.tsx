@@ -4,6 +4,8 @@ import AppFrame from "@/components/AppFrame";
 import { currentUser } from "@/lib/auth/currentUser";
 import { getProfile, isProfileComplete } from "@/lib/profile/store";
 import { isDbConfigured } from "@/lib/db";
+import { listActivity } from "@/lib/activity/store";
+import { listAgents } from "@/lib/agents/store";
 
 export default async function AppGroupLayout({ children }: { children: ReactNode }) {
   const user = await currentUser();
@@ -18,5 +20,12 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     }
   }
 
-  return <AppFrame userName={displayName}>{children}</AppFrame>;
+  const [activityRows, agents] = user ? await Promise.all([listActivity(user.userId, 30), listAgents(user.userId)]) : [[], []];
+  const notifications = activityRows.filter((a) => !a.dismissed);
+
+  return (
+    <AppFrame userName={displayName} notifications={notifications} agents={agents}>
+      {children}
+    </AppFrame>
+  );
 }

@@ -44,7 +44,8 @@ export async function extractBrandCandidates(niche: string, results: SearchResul
   try {
     const result = await geminiJSON<{ brands: BrandCandidate[] }>(system, turns, CANDIDATES_SCHEMA, { maxTokens: 800, temperature: 0.4 });
     return Array.isArray(result.brands) ? result.brands.filter((b) => b.name || b.company) : [];
-  } catch {
+  } catch (err) {
+    console.error("[discovery.ts] Gemini call failed:", err);
     return [];
   }
 }

@@ -67,7 +67,8 @@ Return ONLY JSON matching the schema: { title: string, body: string, packages: s
       body: result.body?.trim() || fb.body,
       packages: Array.isArray(result.packages) ? result.packages.filter(Boolean) : [],
     };
-  } catch {
+  } catch (err) {
+    console.error("[proposal.ts] Gemini call failed:", err);
     return fallbackProposal(lead, creatorName);
   }
 }

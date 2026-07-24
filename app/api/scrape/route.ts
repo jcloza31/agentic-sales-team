@@ -21,7 +21,8 @@ export async function POST() {
       const results = await firecrawlSearch(`brands that sponsor ${niche} content creators influencer partnerships`, 8);
       candidates = await extractBrandCandidates(niche, results);
       if (candidates.length === 0) candidates = fallbackBrandCandidates();
-    } catch {
+    } catch (err) {
+      console.error("[api/scrape] discovery failed:", err);
       candidates = fallbackBrandCandidates();
     }
   } else {

@@ -20,3 +20,12 @@ export async function listActivity(userId: string, limit = 50) {
   if (!db) return [];
   return db.select().from(activity).where(eq(activity.userId, userId)).orderBy(desc(activity.createdAt)).limit(limit);
 }
+
+// Soft-hide only — the notifications bell reads this via `dismissed`,
+// but analytics/dashboard always read the raw log, so clearing the bell
+// never rewinds a metric.
+export async function dismissAllActivity(userId: string): Promise<void> {
+  const db = getDb();
+  if (!db) return;
+  await db.update(activity).set({ dismissed: true }).where(eq(activity.userId, userId));
+}

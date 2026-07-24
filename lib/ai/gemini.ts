@@ -4,7 +4,7 @@ export function isGeminiConfigured(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-flash-lite-latest";
 
 export interface Turn {
   role: "user" | "model";
@@ -24,7 +24,7 @@ async function callGemini(system: string, turns: Turn[], opts: GeminiOpts & { re
   const generationConfig: Record<string, unknown> = {
     temperature: opts.temperature ?? 0.6,
     maxOutputTokens: opts.maxTokens ?? 700,
-    thinkingConfig: { thinkingBudget: 0 },
+    thinkingConfig: { thinkingLevel: "MINIMAL" },
   };
   if (opts.responseSchema) {
     generationConfig.responseMimeType = "application/json";

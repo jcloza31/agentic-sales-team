@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
 import { css } from "@/lib/css";
 import ThemeToggle from "@/components/ThemeToggle";
+import NotificationsBell, { type BellItem, type BellAgent } from "@/components/NotificationsBell";
 
 const NAV: { href: string; label: string; icon: string }[] = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
@@ -41,7 +42,17 @@ function Icon({ type, ...rest }: { type: string } & SVGProps<SVGSVGElement>) {
   }
 }
 
-export default function AppFrame({ userName, children }: { userName: string; children: ReactNode }) {
+export default function AppFrame({
+  userName,
+  notifications,
+  agents,
+  children,
+}: {
+  userName: string;
+  notifications: BellItem[];
+  agents: BellAgent[];
+  children: ReactNode;
+}) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -130,6 +141,9 @@ export default function AppFrame({ userName, children }: { userName: string; chi
               <circle cx="11" cy="11" r="7" />
               <path d="m21 21-4.3-4.3" />
             </svg>
+          </div>
+          <div style={css("margin-left:auto")}>
+            <NotificationsBell initialItems={notifications} agents={agents} />
           </div>
         </header>
         <main style={css("flex:1;padding:28px")}>{children}</main>

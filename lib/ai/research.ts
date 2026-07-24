@@ -57,7 +57,8 @@ Return ONLY JSON matching the schema: { summary: string (2-3 sentences on what t
       hooks: Array.isArray(result.hooks) ? result.hooks.filter(Boolean) : [],
       angle: result.angle?.trim() || fb.angle,
     };
-  } catch {
+  } catch (err) {
+    console.error("[research.ts] Gemini call failed:", err);
     return fallbackResearch(lead);
   }
 }

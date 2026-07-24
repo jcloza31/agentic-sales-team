@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, integer, boolean, primaryKey, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, jsonb, integer, boolean, primaryKey, uuid, serial } from "drizzle-orm/pg-core";
 
 // The account row. `id` is the Clerk user id (not a UUID) — Clerk owns
 // auth/passwords, so this table only holds app-only fields.
@@ -195,5 +195,33 @@ export const meetings = pgTable("meetings", {
   kind: text("kind").notNull().default("call"),
   whenAt: timestamp("when_at", { withTimezone: true }).notNull(),
   whenLabel: text("when_label").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// A connected TikTok account — one per user. Powers the profile photo and
+// follower count shown on the dashboard. Only usable once the app is live
+// on a public HTTPS domain (TikTok won't redirect back to localhost).
+export const tiktokAccounts = pgTable("tiktok_accounts", {
+  userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  openId: text("open_id").notNull(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  displayName: text("display_name").notNull().default(""),
+  username: text("username"),
+  avatarUrl: text("avatar_url").notNull().default(""),
+  followerCount: integer("follower_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// The team group chat — one shared thread per user. `agentId` marks which
+// teammate authored an 'ai' message; null for the creator's own messages.
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  agentId: text("agent_id"),
+  who: text("who").notNull(),
+  text: text("text").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

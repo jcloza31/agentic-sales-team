@@ -39,7 +39,10 @@ export async function firecrawlSearch(query: string, limit = 8): Promise<SearchR
       throw new Error(`Firecrawl ${res.status}: ${text.slice(0, 300)}`);
     }
     const data = await res.json();
-    const items: RawResult[] = data?.data ?? data?.results ?? [];
+    // Firecrawl's /v2/search nests organic results under data.web (not a
+    // bare array at data.data) — fall back to other shapes defensively.
+    const items: RawResult[] = data?.data?.web ?? data?.data ?? data?.results ?? [];
+    if (!Array.isArray(items)) return [];
     return items.map((it) => ({
       title: it.title ?? it.metadata?.title ?? "",
       url: it.url ?? it.link ?? it.metadata?.sourceURL ?? "",

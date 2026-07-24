@@ -63,7 +63,8 @@ Return ONLY JSON matching the schema: { subject: string, body: string, rationale
       body: result.body?.trim() || fb.body,
       rationale: result.rationale?.trim() || fb.rationale,
     };
-  } catch {
+  } catch (err) {
+    console.error("[followup.ts] Gemini call failed:", err);
     return fallbackFollowup(lead, creatorName);
   }
 }

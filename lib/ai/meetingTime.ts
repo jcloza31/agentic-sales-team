@@ -33,7 +33,8 @@ export async function parseMeetingTime(text: string, now: Date = new Date()): Pr
     const d = new Date(result.iso);
     if (isNaN(d.getTime())) return null;
     return { iso: d.toISOString(), label: result.label?.trim() || friendlyLabel(d) };
-  } catch {
+  } catch (err) {
+    console.error("[meetingTime.ts] Gemini call failed:", err);
     return null;
   }
 }
@@ -66,7 +67,8 @@ export async function parseMeetingRequest(text: string, now: Date = new Date()):
     const d = new Date(result.iso);
     if (isNaN(d.getTime())) return null;
     return { iso: d.toISOString(), label: result.label?.trim() || friendlyLabel(d), brandName: result.brandName?.trim() ?? "" };
-  } catch {
+  } catch (err) {
+    console.error("[meetingTime.ts] Gemini call failed:", err);
     return null;
   }
 }

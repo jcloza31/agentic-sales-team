@@ -81,7 +81,8 @@ Return ONLY JSON matching the schema.`;
       body: result.body?.trim() || fb.body,
       rationale: result.rationale?.trim() || fb.rationale,
     };
-  } catch {
+  } catch (err) {
+    console.error("[outreach.ts] Gemini call failed:", err);
     return fallbackOutreach(lead, creatorName);
   }
 }

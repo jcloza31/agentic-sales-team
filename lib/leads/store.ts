@@ -130,10 +130,19 @@ export async function addDiscoveredLeads(
 ): Promise<number> {
   const db = getDb();
   if (!db) return 0;
+
+  // Skip anything that's already in the pipeline (accepted or pending) so
+  // repeated searches don't pile up the same brand over and over.
+  const existing = await db.select({ name: leads.name }).from(leads).where(eq(leads.userId, userId));
+  const existingNames = new Set(existing.map((r) => r.name.trim().toLowerCase()));
+
   let count = 0;
   for (const c of candidates) {
     const name = c.name || c.company;
     if (!name) continue;
+    const key = name.trim().toLowerCase();
+    if (existingNames.has(key)) continue;
+    existingNames.add(key);
     await db.insert(leads).values({
       userId,
       name,

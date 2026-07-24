@@ -6,6 +6,7 @@ import { statusMeta, type StatusKey } from "@/lib/data";
 import { av, hubIcon } from "@/lib/visuals";
 import { AGENT_TYPES, TEAM_TEMPLATES } from "@/lib/agentTypes";
 import { DEMO_STATS, DEMO_ACTIVITY } from "@/lib/demoData";
+import { formatFollowers } from "@/lib/tiktok/format";
 
 export interface DashboardAgent {
   id: string;
@@ -22,6 +23,25 @@ export interface DashboardTeam {
   id: string;
   name: string;
   members: string[];
+}
+
+export interface DashboardStats {
+  leadsWorked: number;
+  tasksRunning: number;
+  activeAgentIds: string[];
+  perAgent: { agentId: string; leadsWorked: number }[];
+}
+
+export interface DashboardActivityItem {
+  agentId: string | null;
+  text: string;
+}
+
+export interface DashboardTiktok {
+  displayName: string;
+  username: string | null;
+  avatarUrl: string;
+  followerCount: number;
 }
 
 // The static preset team — used when no real agents/teams are passed in
@@ -72,16 +92,27 @@ export default function OrbitDashboard({
   userName = "there",
   agents,
   teams,
+  stats,
+  activity,
+  tiktok,
 }: {
   showGreeting?: boolean;
   userName?: string;
   agents?: DashboardAgent[];
   teams?: DashboardTeam[];
+  stats?: DashboardStats;
+  activity?: DashboardActivityItem[];
+  tiktok?: DashboardTiktok;
 }) {
   const [reduced, setReduced] = useState(false);
   const [greeting, setGreeting] = useState("Good morning");
   const [hubTeam, setHubTeam] = useState("all");
   const [tick, setTick] = useState(0);
+  const isReal = Boolean(stats);
+  const [live, setLive] = useState<{ activeAgentIds: string[]; tasksRunning: number }>({
+    activeAgentIds: stats?.activeAgentIds ?? [],
+    tasksRunning: stats?.tasksRunning ?? 0,
+  });
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -94,13 +125,32 @@ export default function OrbitDashboard({
   }, []);
   useEffect(() => { const hub = setInterval(() => setTick((t) => t + 1), 3200); return () => clearInterval(hub); }, []);
 
+  // Poll who's genuinely working right now — only on the real dashboard.
+  useEffect(() => {
+    if (!isReal) return;
+    let cancelled = false;
+    async function poll() {
+      try {
+        const res = await fetch("/api/workspace/status");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setLive({ activeAgentIds: data.activeAgentIds ?? [], tasksRunning: data.tasksRunning ?? 0 });
+      } catch {
+        // ignore — next poll will retry
+      }
+    }
+    poll();
+    const id = setInterval(poll, 2500);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [isReal]);
+
   const AGENTS = agents ?? DEFAULT_AGENTS;
   const TEAMS = teams ?? DEFAULT_TEAMS;
 
-  const ws = DEMO_STATS;
-  const acts = DEMO_ACTIVITY;
-  const paMap = new Map(ws.perAgent.map((p) => [p.agentId, p]));
-  const maxOut = Math.max(1, ...ws.perAgent.map((p) => p.leadsWorked));
+  const perAgentList = stats?.perAgent ?? DEMO_STATS.perAgent;
+  const acts: DashboardActivityItem[] = activity ?? DEMO_ACTIVITY;
+  const paMap = new Map(perAgentList.map((p) => [p.agentId, p]));
+  const maxOut = Math.max(1, ...perAgentList.map((p) => p.leadsWorked));
   const byId = (id: string) => AGENTS.find((a) => a.id === id);
 
   const teamPills = [{ id: "all", label: "Everyone" }, ...TEAMS.map((t) => ({ id: t.id, label: t.name }))];
@@ -108,9 +158,9 @@ export default function OrbitDashboard({
     ? AGENTS
     : ((TEAMS.find((t) => t.id === hubTeam)?.members ?? []).map((id) => byId(id)).filter(Boolean) as DashboardAgent[]);
 
-  const hubWorking = ws.activeAgents;
-  const leadsWorked = ws.leadsWorked;
-  const tasksRunning = ws.tasksRunning;
+  const hubWorking = isReal ? live.activeAgentIds.length : DEMO_STATS.activeAgents;
+  const leadsWorked = stats?.leadsWorked ?? DEMO_STATS.leadsWorked;
+  const tasksRunning = isReal ? live.tasksRunning : DEMO_STATS.tasksRunning;
   const monthLabel = new Date().toLocaleString("en-US", { month: "long" }).toUpperCase();
 
   const kpis = [
@@ -120,10 +170,28 @@ export default function OrbitDashboard({
     { value: members.length, label: "Team members", color: "#7c5cff" },
   ];
 
-  const actLine = (f?: { agentId: string; text: string }) => (f ? (byId(f.agentId)?.name ?? "Agent") + " " + f.text : "");
+  const actLine = (f?: DashboardActivityItem) => {
+    if (!f) return "";
+    const name = f.agentId ? byId(f.agentId)?.name : null;
+    return name ? `${name} ${f.text}` : f.text;
+  };
 
   return (
     <div style={css("display:flex;flex-direction:column;gap:18px;animation:fadeUp .3s ease")}>
+      {tiktok && (
+        <div style={css("display:flex;align-items:center;justify-content:center;gap:14px")}>
+          <div style={css("padding:3px;border-radius:50%;background:var(--bg);box-shadow:0 0 24px rgba(254,44,85,.5),0 0 0 2px #fe2c55;flex:none")}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={tiktok.avatarUrl} alt="" width={64} height={64} style={{ borderRadius: "50%", display: "block", objectFit: "cover" }} />
+          </div>
+          <div>
+            <div style={css("font-family:var(--font-display);font-weight:900;font-size:15px;color:var(--text)")}>
+              {tiktok.username ? `@${tiktok.username}` : tiktok.displayName}
+            </div>
+            <div style={css("font-size:12px;font-weight:700;color:var(--text-muted)")}>{formatFollowers(tiktok.followerCount)} followers on TikTok</div>
+          </div>
+        </div>
+      )}
       {showGreeting && (
         <div style={css("display:flex;align-items:baseline;gap:12px")}>
           <div style={css("font-family:var(--font-display);font-size:26px;font-weight:900;letter-spacing:-.02em;text-transform:uppercase;white-space:nowrap;color:var(--text)")}>{greeting}, {userName}!</div>
@@ -179,9 +247,11 @@ export default function OrbitDashboard({
           {members.map((a, i) => {
             const type = typeByCapability[a.capabilities[0] ?? ""] || "writing";
             const ic = hubIcons[type];
-            const m = statusMeta(a.status ?? "working");
+            const working = isReal ? live.activeAgentIds.includes(a.id) : a.status !== "offline";
+            const displayStatus: StatusKey = a.status === "offline" ? "offline" : working ? "working" : "waiting";
+            const m = statusMeta(displayStatus);
             const latest = acts.find((f) => f.agentId === a.id);
-            const task = latest ? latest.text : a.task || "Ready to help";
+            const task = latest ? latest.text : isReal ? "Ready to help" : a.task || "Ready to help";
             const out = paMap.get(a.id)?.leadsWorked ?? 0;
             const pct = Math.round((out / maxOut) * 100);
             return (
@@ -199,7 +269,7 @@ export default function OrbitDashboard({
                     <div style={css("padding:2.5px;border-radius:50%;background:var(--bg);box-shadow:0 0 20px " + a.color + "99,0 0 0 2px " + a.color)}>
                       <div style={css(av(a, 42) + ";border:2px solid var(--bg)")}>{a.initials}</div>
                     </div>
-                    <div style={css("position:absolute;top:-6px;right:-8px;width:20px;height:20px;border-radius:50%;background:var(--surface);border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.25);animation:" + (reduced ? "none" : ic[0]))}>
+                    <div style={css("position:absolute;top:-6px;right:-8px;width:20px;height:20px;border-radius:50%;background:var(--surface);border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.25);animation:" + (reduced || !working ? "none" : ic[0]))}>
                       <span style={css(hubIcon(type, ic[1], 12))} />
                     </div>
                   </div>
@@ -207,12 +277,12 @@ export default function OrbitDashboard({
                     <div style={css("font-family:var(--font-display);font-size:16px;font-weight:800;letter-spacing:-.01em;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis")}>{a.name}</div>
                     <div style={css("font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:" + a.color + ";margin-top:2px")}>{a.role}</div>
                   </div>
-                  {!reduced && <Equalizer color={a.color} />}
+                  {!reduced && working && <Equalizer color={a.color} />}
                 </div>
 
                 {/* current task */}
                 <div style={css("display:flex;align-items:flex-start;gap:7px;background:var(--overlay-1);border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:12px;min-height:52px")}>
-                  <span style={css("width:6px;height:6px;border-radius:50%;flex:none;margin-top:5px;background:" + m.dot + ";box-shadow:0 0 8px " + m.dot + ";animation:" + (reduced ? "none" : "pulse 1.6s infinite"))} />
+                  <span style={css("width:6px;height:6px;border-radius:50%;flex:none;margin-top:5px;background:" + m.dot + ";box-shadow:0 0 8px " + m.dot + ";animation:" + (reduced || !working ? "none" : "pulse 1.6s infinite"))} />
                   <span style={css("font-size:12.5px;line-height:1.4;color:var(--text)")} key={tick}>{task}</span>
                 </div>
 
@@ -231,6 +301,7 @@ export default function OrbitDashboard({
         {/* live activity feed */}
         <div style={css("margin-top:16px;border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:8px")}>
           <div style={css("font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)")}>Latest activity</div>
+          {acts.length === 0 && <div style={css("font-size:12px;color:var(--text-muted)")}>Nothing yet — your team's work will show up here.</div>}
           {acts.slice(0, 2).map((f, i) => (
             <div key={i} style={css("display:flex;align-items:center;gap:9px;animation:fadeUp .4s ease " + (i * 0.1).toFixed(2) + "s both")}>
               <span style={css("width:6px;height:6px;border-radius:50%;flex:none;background:" + (i === 0 ? "#ffb020" : "var(--text-muted)") + ";" + (i === 0 ? "box-shadow:0 0 8px #ffb020;animation:" + (reduced ? "none" : "pulse 1.6s infinite") : ""))} />
