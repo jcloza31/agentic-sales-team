@@ -25,7 +25,7 @@ export function buildAuthorizeUrl(state: string, codeChallenge: string): string 
   const params = new URLSearchParams({
     client_key: process.env.TIKTOK_CLIENT_KEY || "",
     response_type: "code",
-    scope: "user.info.basic,user.info.stats",
+    scope: "user.info.profile,user.info.stats",
     redirect_uri: redirectUri(),
     state,
     code_challenge: codeChallenge,
